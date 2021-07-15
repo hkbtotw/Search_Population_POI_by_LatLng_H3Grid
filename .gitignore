@@ -1,0 +1,4 @@
+__pycache__/
+Credential.*
+*.csv
+*.xlsx
