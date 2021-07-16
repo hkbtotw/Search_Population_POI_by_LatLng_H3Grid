@@ -15,6 +15,7 @@ import pickle
 import glob
 from sys import exit
 import warnings
+import requests
 from tqdm import *
 
 warnings.filterwarnings('ignore')
@@ -701,6 +702,23 @@ def ComputeNumberShop_by_Distance_rev2(s_lat, s_lng, df711, shop_distance):
     df711['distance']=df711.apply(lambda x: ComputeElementdistance(s_lat, s_lng, x['lat'], x['lng']),axis=1)
     return len(df711[df711['distance']<=shop_distance].reset_index(drop=True))
 
+#### Reverse geocoing with Longdo map
+def ReverseGeocoding_Longdo(lat,lng):
+    # Use URL from opendata website
+    url = 'https://api.longdo.com/map/services/address?'  
+    stringSearch='lon=%s&lat=%s&noelevation=1&key=%s'%(lng,lat,longdo_api)
+    url=url+stringSearch
+    print(' url : ',url)
+
+    response = requests.get(url)
+    result=response.json()
+    
+    output_string=result['road']+' '+result['subdistrict']+' '+result['district']+' '+result['province']+' '+result['country']+' '+result['geocode']
+    print(' result :: ', output_string)
+    return output_string
+
+
+
 ########################################################################################################
 ######  Input ----  ####################################################################################
 # SQL connection for writing data to database
@@ -733,7 +751,7 @@ dfIn=pd.read_excel(input_name, sheet_name='Store_Master',converters=cvt)
 print(len(dfIn),' ======= ',dfIn.head(10))
 
 ### for testing ###############
-#dfIn=dfIn.head(10)
+#dfIn=dfIn.head(1)
 ##############################
 
 dfIn['hex_id']=dfIn.progress_apply(lambda x: GetH3hex(x['Latitude'],x['Longitude'],h3_level),axis=1)
@@ -806,6 +824,8 @@ for province in province_bar:  #[:2]:
     dfDummy['population_women_5']=dfDummy.progress_apply(lambda x: Assign_Population_Women_CenterGrid(x['Population_C']),axis=1)
     dfDummy.drop(columns=['Population_C'], inplace=True)
 
+    # get Address by Reverse Geocoing by Longdo api
+    dfDummy['address']=dfDummy.apply(lambda x: ReverseGeocoding_Longdo(x['Latitude'],x['Longitude']),axis=1)
     mainDf=mainDf.append(dfDummy).reset_index(drop=True)
     
 
