@@ -319,6 +319,8 @@ def Read_Ext_Residential_Prv(prv_input):
                 #print("PostgreSQL connection is closed")    
 
         return dfout
+
+### Only restaurant with Alcohols (liquer, beer, wine)
 def Read_Ext_Restaurant_Prv(prv_input):
         #print('------------- Start ReadDB -------------')
         #dfout = pd.DataFrame(columns=['EmployeeId','UserLat','UserLong','DateTimeStamp'])
@@ -333,10 +335,12 @@ def Read_Ext_Restaurant_Prv(prv_input):
         sql=""
         if(len(prv_input)>0):
                 #print(' Province ------------------------------------------------- ') 
-                sql = """SELECT * FROM public.\"th_ext_restaurant\" where p_name_t = '"""+str(prv_input)+"""' and left(goodfors,4) in ('จานด','เดลิ') """
+                #sql = """SELECT * FROM public.\"th_ext_restaurant\" where p_name_t = '"""+str(prv_input)+"""' and left(goodfors,4) in ('จานด','เดลิ') """
+                sql = """SELECT * FROM public.\"th_ext_restaurant\" where p_name_t = '"""+str(prv_input)+"""' and alcohols in ('เหล้า','คอกเทล','เบียร์','ไวน์') """
         else:
                 #print(' ALL ****************************************************** ') 
-                sql = """SELECT * FROM public.\"th_ext_restaurant\" where left(goodfors,4) in ('จานด','เดลิ')  """
+                #sql = """SELECT * FROM public.\"th_ext_restaurant\" where left(goodfors,4) in ('จานด','เดลิ')  """
+                sql = """SELECT * FROM public.\"th_ext_restaurant\" where alcohols in ('เหล้า','คอกเทล','เบียร์','ไวน์') """
 
         dfout = pd.read_sql_query(sql, connection)
 
@@ -525,7 +529,7 @@ def Get711Store_Around_CenterGrid(dfShop,hex_id, h3_level):
     # 0 is no neighbor
     # 1 is 1 level around center grid and so on
     kRing = h3.k_ring(hexagons1[0], 1)
-    hexagons1=hexagons1+list(kRing)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
 
     dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
     #print(' --- ',dfHex)
@@ -542,7 +546,7 @@ def GetExtRetailShop_Around_CenterGrid(dfShop,hex_id, h3_level):
     # 0 is no neighbor
     # 1 is 1 level around center grid and so on
     kRing = h3.k_ring(hexagons1[0], 1)
-    hexagons1=hexagons1+list(kRing)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
 
     dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
     #print(' --- ',dfHex)
@@ -559,7 +563,7 @@ def GetExtResidential_Around_CenterGrid(dfShop,hex_id, h3_level):
     # 0 is no neighbor
     # 1 is 1 level around center grid and so on
     kRing = h3.k_ring(hexagons1[0], 1)
-    hexagons1=hexagons1+list(kRing)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
 
     dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
     #print(' --- ',dfHex)
@@ -576,7 +580,7 @@ def GetExtRestaurant_Around_CenterGrid(dfShop,hex_id, h3_level):
     # 0 is no neighbor
     # 1 is 1 level around center grid and so on
     kRing = h3.k_ring(hexagons1[0], 1)
-    hexagons1=hexagons1+list(kRing)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
 
     dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
     #print(' --- ',dfHex)
@@ -593,7 +597,7 @@ def GetExtEducation_Around_CenterGrid(dfShop,hex_id, h3_level):
     # 0 is no neighbor
     # 1 is 1 level around center grid and so on
     kRing = h3.k_ring(hexagons1[0], 1)
-    hexagons1=hexagons1+list(kRing)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
 
     dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
     #print(' --- ',dfHex)
@@ -610,7 +614,7 @@ def GetExtHotel_Around_CenterGrid(dfShop,hex_id, h3_level):
     # 0 is no neighbor
     # 1 is 1 level around center grid and so on
     kRing = h3.k_ring(hexagons1[0], 1)
-    hexagons1=hexagons1+list(kRing)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
 
     dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
     #print(' --- ',dfHex)
@@ -703,7 +707,7 @@ dfIn=pd.read_excel(input_name, sheet_name='Store_Master',converters=cvt)
 print(len(dfIn),' ======= ',dfIn.head(10))
 
 ### for testing ###############
-dfIn=dfIn.head(20)
+dfIn=dfIn.head(100)
 ##############################
 
 dfIn['hex_id']=dfIn.progress_apply(lambda x: GetH3hex(x['Latitude'],x['Longitude'],h3_level),axis=1)
