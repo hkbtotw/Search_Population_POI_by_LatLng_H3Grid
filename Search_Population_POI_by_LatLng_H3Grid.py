@@ -1,6 +1,7 @@
 from h3 import h3
 from Database_Population import *
 from datetime import datetime, date, timedelta
+from math import radians, cos, sin, asin, sqrt
 from geopandas import GeoDataFrame
 from shapely.geometry import Polygon, mapping
 import pyproj    #to convert coordinate system
@@ -28,6 +29,22 @@ nowStr=datetime.today().strftime('%Y-%m-%d %H:%M:%S')
 print("TodayStr's date:", todayStr,' -- ',type(todayStr))
 print("nowStr's date:", nowStr,' -- ',type(nowStr))
 
+  
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance between two points 
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians 
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+    # haversine formula 
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a)) 
+    r = 6371 # Radius of earth in kilometers. Use 3956 for miles
+    return c * r
 
 def GetH3hex(lat,lng,h3_level):
     return h3.geo_to_h3(lat, lng, h3_level)
@@ -676,7 +693,13 @@ def Assign_Population_Men_CenterGrid(x):
 def Assign_Population_Women_CenterGrid(x):
        return float(x.split("_")[6])
 
+### Compute #Shop based on specified radius from location
+def ComputeElementdistance(s_lat, s_lng, p_lat, p_lng):
+    return haversine(float(p_lng), float(p_lat), float(s_lng), float(s_lat))
 
+def ComputeNumberShop_by_Distance_rev2(s_lat, s_lng, df711, shop_distance):
+    df711['distance']=df711.apply(lambda x: ComputeElementdistance(s_lat, s_lng, x['lat'], x['lng']),axis=1)
+    return len(df711[df711['distance']<=shop_distance].reset_index(drop=True))
 
 ########################################################################################################
 ######  Input ----  ####################################################################################
@@ -685,6 +708,9 @@ conn = connect_tad
 
 # level 8 covers approx 1 km2
 h3_level=8   
+
+# Specify distance to seach for shops
+shop_distance=1
 
 # working directory
 current_path=os.getcwd()
@@ -707,7 +733,7 @@ dfIn=pd.read_excel(input_name, sheet_name='Store_Master',converters=cvt)
 print(len(dfIn),' ======= ',dfIn.head(10))
 
 ### for testing ###############
-dfIn=dfIn.head(100)
+#dfIn=dfIn.head(10)
 ##############################
 
 dfIn['hex_id']=dfIn.progress_apply(lambda x: GetH3hex(x['Latitude'],x['Longitude'],h3_level),axis=1)
@@ -748,22 +774,27 @@ for province in province_bar:  #[:2]:
     dfShop=Read_Ext_711_Prv(province)     
     dfDummy['ext_711_073']=dfDummy.progress_apply(lambda x: Get711Store_rev2(dfShop, x['hex_id'],h3_level),axis=1)           
     dfDummy['ext_711_5C']=dfDummy.progress_apply(lambda x: Get711Store_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    #dfDummy['ext_711_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     dfShop=Read_Ext_Retail_Shop_Prv(province)   
     dfDummy['ext_Retail_073']=dfDummy.progress_apply(lambda x: GetExtRetailShop_rev2(dfShop, x['hex_id'],h3_level),axis=1)
     dfDummy['ext_Retail_5C']=dfDummy.progress_apply(lambda x: GetExtRetailShop_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    #dfDummy['ext_Retail_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     dfShop=Read_Ext_Residential_Prv(province)  
     dfDummy['ext_Residential_073']=dfDummy.progress_apply(lambda x: GetExtResidential_rev2(dfShop, x['hex_id'],h3_level),axis=1)
     dfDummy['ext_Residential_5C']=dfDummy.progress_apply(lambda x: GetExtResidential_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    #dfDummy['ext_Residential_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     dfShop=Read_Ext_Restaurant_Prv(province)  
     dfDummy['ext_Restaurant_073']=dfDummy.progress_apply(lambda x: GetExtRestaurant_rev2(dfShop, x['hex_id'],h3_level),axis=1)
     dfDummy['ext_Restaurant_5C']=dfDummy.progress_apply(lambda x: GetExtRestaurant_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    #dfDummy['ext_Restaurant_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     dfShop=Read_Ext_Education_Prv(province)
     dfDummy['ext_Education_073']=dfDummy.progress_apply(lambda x: GetExtEducation_rev2(dfShop, x['hex_id'],h3_level),axis=1)
     dfDummy['ext_Education_5C']=dfDummy.progress_apply(lambda x: GetExtEducation_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    #dfDummy['ext_Education_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     dfShop=Read_Ext_Hotel_Prv(province) 
     dfDummy['ext_Hotel_073']=dfDummy.progress_apply(lambda x: GetExtHotel_rev2(dfShop, x['hex_id'],h3_level),axis=1)  
     dfDummy['ext_Hotel_5C']=dfDummy.progress_apply(lambda x: GetExtHotel_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
-    
+    #dfDummy['ext_Hotel_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     print(' 3. Population on 5km2 area ')   
     dfDummy['Population_C']=dfDummy.progress_apply(lambda x:GetPopulation_Around_CenterGrid(dfPop,x['hex_id']),axis=1)
     dfDummy['population_general_5']=dfDummy.progress_apply(lambda x: Assign_Population_General_CenterGrid(x['Population_C']),axis=1)
@@ -774,7 +805,6 @@ for province in province_bar:  #[:2]:
     dfDummy['population_men_5']=dfDummy.progress_apply(lambda x: Assign_Population_Men_CenterGrid(x['Population_C']),axis=1)
     dfDummy['population_women_5']=dfDummy.progress_apply(lambda x: Assign_Population_Women_CenterGrid(x['Population_C']),axis=1)
     dfDummy.drop(columns=['Population_C'], inplace=True)
-
 
     mainDf=mainDf.append(dfDummy).reset_index(drop=True)
     
