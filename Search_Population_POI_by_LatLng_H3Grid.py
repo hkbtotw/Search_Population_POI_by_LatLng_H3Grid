@@ -88,10 +88,62 @@ def Read_H3_Grid_Lv8_Province_PAT(province):
     #print(dfout)    
     del conn, cursor, sql
     #print(' --------- Reading End -------------')
-
-
     return dfout
 
+def Read_H3_Grid_RWI_Lv8_Province(province):
+    #print('------------- Start ReadDB -------------', province)
+    #dfout = pd.DataFrame(columns=['EmployeeId','UserLat','UserLong','DateTimeStamp'])
+    # ODBC Driver 17 for SQL Server
+    conn = connect_tad
+
+    cursor = conn.cursor()
+
+    sql="""
+            SELECT [hex_id]
+                ,[Latitude]
+                ,[Longitude]
+                ,[rwi]
+                ,[geometry]
+                ,[p_name_t]
+                ,[a_name_t]
+                ,[t_name_t]
+                ,[s_region]
+                ,[prov_idn]
+                ,[amphoe_idn]
+                ,[tambon_idn]
+                ,[DBCreatedAt]
+            FROM [TSR_ADHOC].[dbo].[H3_Grid_RWI_Lv8_Province]
+              where p_name_t= N'"""+str(province)+"""'
+        """
+
+    dfout=pd.read_sql(sql,conn)    
+    includeList=['hex_id','rwi']
+    dfout=dfout[includeList]
+    #print(len(dfout.columns),' :: ',dfout.columns)
+    #print(dfout)    
+    del conn, cursor, sql
+    #print(' --------- Reading End -------------')
+    return dfout
+
+def normalize_min_max(x,x_min, x_max):
+    return (x-x_min)/(x_max-x_min)
+
+def RWI_normalize(dfIn):
+    dfIn['norm_rwi']=dfIn.swifter.apply(lambda x: normalize_min_max(x['rwi'],dfIn['rwi'].min(),dfIn['rwi'].max()),axis=1)
+    return dfIn
+
+def Seek_Quantile_Position(x,d):   
+    try:    
+        if x<= d[0.25]:
+            return 1
+        elif x<=d[0.50]:
+            return 2
+        elif x<=d[0.75]:
+            return 3
+        else:
+            return 4
+    except:
+        return 999
 
 ## Get population on grid
 def Get_Facebook_Population_General(dfIn, hex_id):
@@ -721,8 +773,6 @@ def ReverseGeocoding_Longdo(lat,lng):
     #print(' result :: ', output_string)
     return output_string
 
-
-
 ########################################################################################################
 ######  Input ----  ####################################################################################
 # SQL connection for writing data to database
@@ -744,14 +794,17 @@ input_path=current_path+'\\'
 # qgis_path='C:\\Users\\70018928\\Documents\\Project2021\\Experiment\\Uber_h3\\qgis_shapefile\\'
 
 # input filename
-input_name='Store_master.xlsx'
-output_name='Store_Population_POI.xlsx'
+#input_name='Store_master.xlsx'    ### KFC Store   797,799,806,816
+input_name='Location.xlsx'     ### Location   798, 800, 807, 817
+#output_name='Store_Population_POI.xlsx'     ### KFC Store
+output_name='Location_Population_POI.xlsx'   #### Location
 
 # id column
 id_column_name='Store_ID'
 #######################################################################################################
 cvt={id_column_name:str}
-dfIn=pd.read_excel(input_name, sheet_name='Store_Master',converters=cvt)
+#dfIn=pd.read_excel(input_name, sheet_name='Store_Master',converters=cvt)    ### KFC Store
+dfIn=pd.read_excel(input_name, sheet_name='Sheet1',converters=cvt)    ### Location
 print(len(dfIn),' ======= ',dfIn.head(10))
 
 ### for testing ###############
@@ -760,7 +813,8 @@ print(len(dfIn),' ======= ',dfIn.head(10))
 
 dfIn['hex_id']=dfIn.progress_apply(lambda x: GetH3hex(x['Latitude'],x['Longitude'],h3_level),axis=1)
 
-includeList=['hex_id','Store_ID','Latitude','Longitude']
+#includeList=['hex_id','Store_ID','Latitude','Longitude']   ### KFC Store
+includeList=['hex_id','Latitude','Longitude']     ### Location
 dfHex=dfIn[includeList].copy().reset_index(drop=True)
 print(len(dfHex),'  ----  ',dfHex)
 
@@ -779,7 +833,6 @@ for province in province_bar:  #[:2]:
     ################# format : file_name='boundary_ชลบุรี.data'
     province_bar.set_description("Processing %s" % province)
 
-    
     print(' 1. Population on Grid ')   
     dfPop=Read_H3_Grid_Lv8_Province_PAT(province)
     #print(len(dfPop),' ---- ', dfPop.head(3), ' ::  ',dfPop.columns)
@@ -788,13 +841,13 @@ for province in province_bar:  #[:2]:
     dfDummy['address']=dfDummy.apply(lambda x: ReverseGeocoding_Longdo(x['Latitude'],x['Longitude']),axis=1)
 
     #print(' ==> ',dfDummy)    
-    dfDummy['population_general']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_General(dfPop, x['hex_id']),axis=1)
-    dfDummy['population_1625']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Youth(dfPop, x['hex_id']),axis=1)
-    dfDummy['population_60up']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Elder(dfPop, x['hex_id']),axis=1)
-    dfDummy['population_under_five']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Under_Five(dfPop, x['hex_id']),axis=1)
-    dfDummy['population_515_2660']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_515_2560(dfPop, x['hex_id']),axis=1)
-    dfDummy['population_Men']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Men(dfPop, x['hex_id']),axis=1)
-    dfDummy['population_Women']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Women(dfPop, x['hex_id']),axis=1)
+    dfDummy['population_general']=dfDummy.swifter.apply(lambda x: Get_Facebook_Population_General(dfPop, x['hex_id']),axis=1)
+    dfDummy['population_1625']=dfDummy.swifter.apply(lambda x: Get_Facebook_Population_Youth(dfPop, x['hex_id']),axis=1)
+    dfDummy['population_60up']=dfDummy.swifter.apply(lambda x: Get_Facebook_Population_Elder(dfPop, x['hex_id']),axis=1)
+    dfDummy['population_under_five']=dfDummy.swifter.apply(lambda x: Get_Facebook_Population_Under_Five(dfPop, x['hex_id']),axis=1)
+    dfDummy['population_515_2660']=dfDummy.swifter.apply(lambda x: Get_Facebook_Population_515_2560(dfPop, x['hex_id']),axis=1)
+    dfDummy['population_Men']=dfDummy.swifter.apply(lambda x: Get_Facebook_Population_Men(dfPop, x['hex_id']),axis=1)
+    dfDummy['population_Women']=dfDummy.swifter.apply(lambda x: Get_Facebook_Population_Women(dfPop, x['hex_id']),axis=1)
 
     ### Count store numbers on store grid
     print(' 2. POI on grid and 5 km2 ')   
@@ -832,11 +885,17 @@ for province in province_bar:  #[:2]:
     dfDummy['population_men_5']=dfDummy.swifter.apply(lambda x: Assign_Population_Men_CenterGrid(x['Population_C']),axis=1)
     dfDummy['population_women_5']=dfDummy.swifter.apply(lambda x: Assign_Population_Women_CenterGrid(x['Population_C']),axis=1)
     dfDummy.drop(columns=['Population_C'], inplace=True)
+    print(' 4. RWI , normalized in province ')
+    dfShop=Read_H3_Grid_RWI_Lv8_Province(province)
+    dfShop=RWI_normalize(dfShop)
+    quantiles = dfShop['norm_rwi'].quantile(q=[0.25,0.50,0.75])
+    quantiles = quantiles.to_dict()
+    #print(' quantile : ',quantiles)
+    dfShop['rwi_quartile']=dfShop.swifter.apply(lambda x:Seek_Quantile_Position(x['norm_rwi'],quantiles),axis=1)
+    dfDummy=dfDummy.merge(dfShop[['hex_id','norm_rwi','rwi_quartile']], on='hex_id', how='left')
+    #print(' ------ ',dfDummy)
 
     mainDf=mainDf.append(dfDummy).reset_index(drop=True)
-    
-
-
 
 print(mainDf.head(10))
 mainDf.to_excel(output_name)
