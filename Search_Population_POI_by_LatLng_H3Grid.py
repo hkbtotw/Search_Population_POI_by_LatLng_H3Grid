@@ -16,6 +16,7 @@ import glob
 from sys import exit
 import warnings
 import requests
+import swifter
 from tqdm import *
 
 warnings.filterwarnings('ignore')
@@ -708,13 +709,16 @@ def ReverseGeocoding_Longdo(lat,lng):
     url = 'https://api.longdo.com/map/services/address?'  
     stringSearch='lon=%s&lat=%s&noelevation=1&key=%s'%(lng,lat,longdo_api)
     url=url+stringSearch
-    print(' url : ',url)
+    #print(' url : ',url)
 
     response = requests.get(url)
-    result=response.json()
     
-    output_string=result['road']+' '+result['subdistrict']+' '+result['district']+' '+result['province']+' '+result['country']+' '+result['geocode']
-    print(' result :: ', output_string)
+    try:
+        result=response.json()
+        output_string=result['road']+' '+result['subdistrict']+' '+result['district']+' '+result['province']+' '+result['country']+' '+result['geocode']
+    except:
+        output_string=''
+    #print(' result :: ', output_string)
     return output_string
 
 
@@ -774,58 +778,61 @@ province_bar=tqdm(provinceList)
 for province in province_bar:  #[:2]:
     ################# format : file_name='boundary_ชลบุรี.data'
     province_bar.set_description("Processing %s" % province)
+
+    
     print(' 1. Population on Grid ')   
     dfPop=Read_H3_Grid_Lv8_Province_PAT(province)
     #print(len(dfPop),' ---- ', dfPop.head(3), ' ::  ',dfPop.columns)
     dfDummy=dfHex[dfHex['p_name_t']==province].copy()
+    # get Address by Reverse Geocoing by Longdo api
+    dfDummy['address']=dfDummy.apply(lambda x: ReverseGeocoding_Longdo(x['Latitude'],x['Longitude']),axis=1)
+
     #print(' ==> ',dfDummy)    
     dfDummy['population_general']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_General(dfPop, x['hex_id']),axis=1)
-    dfDummy['population_youth']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Youth(dfPop, x['hex_id']),axis=1)
-    dfDummy['population_elder']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Elder(dfPop, x['hex_id']),axis=1)
+    dfDummy['population_1625']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Youth(dfPop, x['hex_id']),axis=1)
+    dfDummy['population_60up']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Elder(dfPop, x['hex_id']),axis=1)
     dfDummy['population_under_five']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Under_Five(dfPop, x['hex_id']),axis=1)
-    dfDummy['population_515_2560']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_515_2560(dfPop, x['hex_id']),axis=1)
+    dfDummy['population_515_2660']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_515_2560(dfPop, x['hex_id']),axis=1)
     dfDummy['population_Men']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Men(dfPop, x['hex_id']),axis=1)
     dfDummy['population_Women']=dfDummy.progress_apply(lambda x: Get_Facebook_Population_Women(dfPop, x['hex_id']),axis=1)
 
     ### Count store numbers on store grid
     print(' 2. POI on grid and 5 km2 ')   
     dfShop=Read_Ext_711_Prv(province)     
-    dfDummy['ext_711_073']=dfDummy.progress_apply(lambda x: Get711Store_rev2(dfShop, x['hex_id'],h3_level),axis=1)           
-    dfDummy['ext_711_5C']=dfDummy.progress_apply(lambda x: Get711Store_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_711_073']=dfDummy.swifter.apply(lambda x: Get711Store_rev2(dfShop, x['hex_id'],h3_level),axis=1)           
+    dfDummy['ext_711_5']=dfDummy.swifter.apply(lambda x: Get711Store_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_711_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     dfShop=Read_Ext_Retail_Shop_Prv(province)   
-    dfDummy['ext_Retail_073']=dfDummy.progress_apply(lambda x: GetExtRetailShop_rev2(dfShop, x['hex_id'],h3_level),axis=1)
-    dfDummy['ext_Retail_5C']=dfDummy.progress_apply(lambda x: GetExtRetailShop_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_Retail_073']=dfDummy.swifter.apply(lambda x: GetExtRetailShop_rev2(dfShop, x['hex_id'],h3_level),axis=1)
+    dfDummy['ext_Retail_5']=dfDummy.swifter.apply(lambda x: GetExtRetailShop_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_Retail_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     dfShop=Read_Ext_Residential_Prv(province)  
-    dfDummy['ext_Residential_073']=dfDummy.progress_apply(lambda x: GetExtResidential_rev2(dfShop, x['hex_id'],h3_level),axis=1)
-    dfDummy['ext_Residential_5C']=dfDummy.progress_apply(lambda x: GetExtResidential_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_Residential_073']=dfDummy.swifter.apply(lambda x: GetExtResidential_rev2(dfShop, x['hex_id'],h3_level),axis=1)
+    dfDummy['ext_Residential_5']=dfDummy.swifter.apply(lambda x: GetExtResidential_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_Residential_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     dfShop=Read_Ext_Restaurant_Prv(province)  
-    dfDummy['ext_Restaurant_073']=dfDummy.progress_apply(lambda x: GetExtRestaurant_rev2(dfShop, x['hex_id'],h3_level),axis=1)
-    dfDummy['ext_Restaurant_5C']=dfDummy.progress_apply(lambda x: GetExtRestaurant_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_Restaurant_073']=dfDummy.swifter.apply(lambda x: GetExtRestaurant_rev2(dfShop, x['hex_id'],h3_level),axis=1)
+    dfDummy['ext_Restaurant_5']=dfDummy.swifter.apply(lambda x: GetExtRestaurant_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_Restaurant_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     dfShop=Read_Ext_Education_Prv(province)
-    dfDummy['ext_Education_073']=dfDummy.progress_apply(lambda x: GetExtEducation_rev2(dfShop, x['hex_id'],h3_level),axis=1)
-    dfDummy['ext_Education_5C']=dfDummy.progress_apply(lambda x: GetExtEducation_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_Education_073']=dfDummy.swifter.apply(lambda x: GetExtEducation_rev2(dfShop, x['hex_id'],h3_level),axis=1)
+    dfDummy['ext_Education_5']=dfDummy.swifter.apply(lambda x: GetExtEducation_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_Education_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     dfShop=Read_Ext_Hotel_Prv(province) 
-    dfDummy['ext_Hotel_073']=dfDummy.progress_apply(lambda x: GetExtHotel_rev2(dfShop, x['hex_id'],h3_level),axis=1)  
-    dfDummy['ext_Hotel_5C']=dfDummy.progress_apply(lambda x: GetExtHotel_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_Hotel_073']=dfDummy.swifter.apply(lambda x: GetExtHotel_rev2(dfShop, x['hex_id'],h3_level),axis=1)  
+    dfDummy['ext_Hotel_5']=dfDummy.swifter.apply(lambda x: GetExtHotel_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_Hotel_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     print(' 3. Population on 5km2 area ')   
-    dfDummy['Population_C']=dfDummy.progress_apply(lambda x:GetPopulation_Around_CenterGrid(dfPop,x['hex_id']),axis=1)
-    dfDummy['population_general_5']=dfDummy.progress_apply(lambda x: Assign_Population_General_CenterGrid(x['Population_C']),axis=1)
-    dfDummy['population_youth_5']=dfDummy.progress_apply(lambda x: Assign_Population_Youth_CenterGrid(x['Population_C']),axis=1)
-    dfDummy['population_elder_5']=dfDummy.progress_apply(lambda x: Assign_Population_Elder_CenterGrid(x['Population_C']),axis=1)
-    dfDummy['population_under_five_5']=dfDummy.progress_apply(lambda x: Assign_Population_underFive_CenterGrid(x['Population_C']),axis=1)
-    dfDummy['population_515_2560_5']=dfDummy.progress_apply(lambda x: Assign_Population_515_2560_CenterGrid(x['Population_C']),axis=1)
-    dfDummy['population_men_5']=dfDummy.progress_apply(lambda x: Assign_Population_Men_CenterGrid(x['Population_C']),axis=1)
-    dfDummy['population_women_5']=dfDummy.progress_apply(lambda x: Assign_Population_Women_CenterGrid(x['Population_C']),axis=1)
+    dfDummy['Population_C']=dfDummy.swifter.apply(lambda x:GetPopulation_Around_CenterGrid(dfPop,x['hex_id']),axis=1)
+    dfDummy['population_general_5']=dfDummy.swifter.apply(lambda x: Assign_Population_General_CenterGrid(x['Population_C']),axis=1)
+    dfDummy['population_1625_5']=dfDummy.swifter.apply(lambda x: Assign_Population_Youth_CenterGrid(x['Population_C']),axis=1)
+    dfDummy['population_60up_5']=dfDummy.swifter.apply(lambda x: Assign_Population_Elder_CenterGrid(x['Population_C']),axis=1)
+    dfDummy['population_under_five_5']=dfDummy.swifter.apply(lambda x: Assign_Population_underFive_CenterGrid(x['Population_C']),axis=1)
+    dfDummy['population_515_2660_5']=dfDummy.swifter.apply(lambda x: Assign_Population_515_2560_CenterGrid(x['Population_C']),axis=1)
+    dfDummy['population_men_5']=dfDummy.swifter.apply(lambda x: Assign_Population_Men_CenterGrid(x['Population_C']),axis=1)
+    dfDummy['population_women_5']=dfDummy.swifter.apply(lambda x: Assign_Population_Women_CenterGrid(x['Population_C']),axis=1)
     dfDummy.drop(columns=['Population_C'], inplace=True)
 
-    # get Address by Reverse Geocoing by Longdo api
-    dfDummy['address']=dfDummy.apply(lambda x: ReverseGeocoding_Longdo(x['Latitude'],x['Longitude']),axis=1)
     mainDf=mainDf.append(dfDummy).reset_index(drop=True)
     
 
