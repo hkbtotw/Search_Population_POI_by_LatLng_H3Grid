@@ -3,6 +3,7 @@
 2021-07-15  Created by Tawan.T
 2021-07-16  Add function to compute #shops by specified radius
 2021-07-16  Add reverse geocoding by  longdo map
+2021-07-23  Fix problem with interpolating population at store in boundary grid which might have center on different province
 
 Note:
 1.Result of total shop computed by specified radius function might be different from that by summation on grids as the first method uses location lat lng at center as reference but the second uses fixed grid location as reference.

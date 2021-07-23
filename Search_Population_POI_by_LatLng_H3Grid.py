@@ -5,7 +5,7 @@ from math import radians, cos, sin, asin, sqrt
 from geopandas import GeoDataFrame
 from shapely.geometry import Polygon, mapping
 import pyproj    #to convert coordinate system
-from csv_join_tambon import Reverse_GeoCoding
+from csv_join_tambon import Reverse_GeoCoding, Reverse_GeoCoding_CenterGrid
 from Credential import *
 import numpy as np
 import os
@@ -50,6 +50,12 @@ def haversine(lon1, lat1, lon2, lat2):
 
 def GetH3hex(lat,lng,h3_level):
     return h3.geo_to_h3(lat, lng, h3_level)
+
+def GetCenterHex_Lat(hex_id):
+    return h3.h3_to_geo(hex_id)[0]
+
+def GetCenterHex_Lng(hex_id):
+    return h3.h3_to_geo(hex_id)[1]
 
 def Read_H3_Grid_Lv8_Province_PAT(province):
     #print('------------- Start ReadDB -------------', province)
@@ -148,17 +154,19 @@ def Seek_Quantile_Position(x,d):
 ## Get population on grid
 def Get_Facebook_Population_General(dfIn, hex_id):
     #######################################################################################################
+    #print(' ---> ',hex_id)
     if(len(dfIn)>0):        
         print('There are population in ',province)
         # Read Facebook population ,saved in dfIn, selected only lat lng and population columns stored in dfDummy
         #print(dfIn.columns, '===== ',dfIn.head(5))
-        #dfDummy=dfIn[['Longitude','Latitude','population']].copy()        
+        dfDummy=dfIn[['Longitude','Latitude','population']].copy()        
         dfDummy=dfIn[dfIn['hex_id']==hex_id].copy()        
         del dfIn
         if(len(dfDummy)>0):
             #print(dfDummy.columns,' ---population general-- ',dfDummy.head(5))
             population=dfDummy['population'].values[0]
         else:
+            #print( 'xxxxxxx ')
             population=0
     else:
         #print(' No population in =======> ',province)
@@ -812,22 +820,28 @@ print(len(dfIn),' ======= ',dfIn.head(10))
 ##############################
 
 dfIn['hex_id']=dfIn.progress_apply(lambda x: GetH3hex(x['Latitude'],x['Longitude'],h3_level),axis=1)
+dfIn['Center_Latitude']=dfIn.progress_apply(lambda x: GetCenterHex_Lat(x['hex_id']),axis=1)
+dfIn['Center_Longitude']=dfIn.progress_apply(lambda x: GetCenterHex_Lng(x['hex_id']),axis=1)
+
 
 #includeList=['hex_id','Store_ID','Latitude','Longitude']   ### KFC Store
-includeList=['hex_id','Latitude','Longitude']     ### Location
+includeList=['hex_id','Name','Latitude','Longitude','Center_Latitude','Center_Longitude']     ### Location
 dfHex=dfIn[includeList].copy().reset_index(drop=True)
-print(len(dfHex),'  ----  ',dfHex)
+#print(len(dfHex),'  ----  ',dfHex)
 
 #### Find province name
 dfHex=Reverse_GeoCoding(dfHex)
 dropList=['geometry','index_right', 'p_code', 'a_code', 't_code', 'prov_idn','amphoe_idn', 'tambon_idn', 'area_sqm', 'BS_IDX']
 dfHex.drop(columns=dropList,inplace=True)
-print(dfHex.columns, ' ======= ',dfHex)
+#print(dfHex.columns, ' ======= ',dfHex)
 
+## Find center grid province name
+dfHex=Reverse_GeoCoding_CenterGrid(dfHex)
+#print(dfHex.columns, ' ==== ****************** === ',dfHex)
 
 mainDf=pd.DataFrame()
 
-provinceList=list(dfHex['p_name_t'].unique())
+provinceList=list(dfHex['Center_Province'].unique())
 province_bar=tqdm(provinceList)
 for province in province_bar:  #[:2]:
     ################# format : file_name='boundary_ชลบุรี.data'
@@ -836,7 +850,7 @@ for province in province_bar:  #[:2]:
     print(' 1. Population on Grid ')   
     dfPop=Read_H3_Grid_Lv8_Province_PAT(province)
     #print(len(dfPop),' ---- ', dfPop.head(3), ' ::  ',dfPop.columns)
-    dfDummy=dfHex[dfHex['p_name_t']==province].copy()
+    dfDummy=dfHex[dfHex['Center_Province']==province].copy()
     # get Address by Reverse Geocoing by Longdo api
     dfDummy['address']=dfDummy.apply(lambda x: ReverseGeocoding_Longdo(x['Latitude'],x['Longitude']),axis=1)
 
@@ -898,6 +912,9 @@ for province in province_bar:  #[:2]:
     mainDf=mainDf.append(dfDummy).reset_index(drop=True)
 
 print(mainDf.head(10))
+dropList=['Center_Latitude','Center_Longitude','a_name_e','t_name_e']
+mainDf.drop(columns=dropList, inplace=True)
+mainDf.rename(columns={'Center_Province':'GridCenter_Province'},inplace=True)
 mainDf.to_excel(output_name)
 
 conn.close()
