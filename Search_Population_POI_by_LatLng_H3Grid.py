@@ -5,7 +5,7 @@ from math import radians, cos, sin, asin, sqrt
 from geopandas import GeoDataFrame
 from shapely.geometry import Polygon, mapping
 import pyproj    #to convert coordinate system
-from csv_join_tambon import Reverse_GeoCoding, Reverse_GeoCoding_CenterGrid
+from csv_join_tambon import Reverse_GeoCoding, Reverse_GeoCoding_CenterGrid, Reverse_GeoCoding_5km2
 from Credential import *
 import numpy as np
 import os
@@ -600,7 +600,7 @@ def GetExtHotel_rev2(df711, hex_id,h3_level):
               sum_711_store=0       
        return sum_711_store
 
-### Get #Store on 5km3 around store grid
+### Get #Store on 5km2 around store grid
 def Get711Store_Around_CenterGrid(dfShop,hex_id, h3_level):
     hexagons1=[]
     hexagons1.append(hex_id)
@@ -704,6 +704,211 @@ def GetExtHotel_Around_CenterGrid(dfShop,hex_id, h3_level):
     del dfHex, hexagons1, kRing
     return dfSum[1]
 
+
+### Get #Store on 5km2 around store center grid + fix boundary grid
+def Get711Store_Around_CenterGrid_rev2(hex_id, h3_level):
+    hexagons1=[]
+    hexagons1.append(hex_id)
+    #print('hex :',hexagons1)
+    # k_ring 2nd argument: 1,2,3,....  is the level of neighbor grids around center grid
+    # 0 is no neighbor
+    # 1 is 1 level around center grid and so on
+    kRing = h3.k_ring(hexagons1[0], 1)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
+
+    dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
+    #print(' --- ',dfHex)    
+    dfHex['h_Latitude']=dfHex.apply(lambda x: GetCenterHex_Lat(x['hex_id']),axis=1 )
+    dfHex['h_Longitude']=dfHex.apply(lambda x: GetCenterHex_Lng(x['hex_id']),axis=1 )
+    dfHex=Reverse_GeoCoding_5km2(dfHex)    
+    #print(' 2 --- ',dfHex)
+
+    provinceList=list(dfHex['p_name_t'].unique())
+    #print(' provinceList : ',provinceList)
+
+    resultDf=pd.DataFrame()
+
+    for province in provinceList:
+        dfShop=Read_Ext_711_Prv(province)   
+        dfDummy=dfHex[dfHex['p_name_t']==province].copy()
+        dfDummy['stores']=dfDummy.apply(lambda x: Get711Store_rev2(dfShop, x['hex_id'],h3_level),axis=1 )
+        #print(' dfDummy : ',dfDummy)
+        resultDf=resultDf.append(dfDummy).reset_index(drop=True)
+
+    includeList=['stores']
+    resultDf=resultDf[includeList].copy()
+    #print(' result : ',resultDf)
+    dfSum=resultDf.sum()
+    #print(' Sum --- ',dfSum)   
+    del dfHex, hexagons1, kRing, dfShop, dfDummy, resultDf
+    return dfSum[0]
+def GetExtRetailShop_Around_CenterGrid_rev2(hex_id, h3_level):
+    hexagons1=[]
+    hexagons1.append(hex_id)
+    #print('hex :',hexagons1)
+    # k_ring 2nd argument: 1,2,3,....  is the level of neighbor grids around center grid
+    # 0 is no neighbor
+    # 1 is 1 level around center grid and so on
+    kRing = h3.k_ring(hexagons1[0], 1)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
+
+    dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
+    #print(' --- ',dfHex)    
+    dfHex['h_Latitude']=dfHex.apply(lambda x: GetCenterHex_Lat(x['hex_id']),axis=1 )
+    dfHex['h_Longitude']=dfHex.apply(lambda x: GetCenterHex_Lng(x['hex_id']),axis=1 )
+    dfHex=Reverse_GeoCoding_5km2(dfHex)    
+    #print(' 2 --- ',dfHex)
+    provinceList=list(dfHex['p_name_t'].unique())
+    #print(' provinceList : ',provinceList)
+    resultDf=pd.DataFrame()
+    for province in provinceList:
+        dfShop=Read_Ext_Retail_Shop_Prv(province)   
+        dfDummy=dfHex[dfHex['p_name_t']==province].copy()
+        dfDummy['stores']=dfDummy.apply(lambda x: GetExtRetailShop_rev2(dfShop, x['hex_id'],h3_level),axis=1 )
+        #print(' dfDummy : ',dfDummy)
+        resultDf=resultDf.append(dfDummy).reset_index(drop=True)
+
+    includeList=['stores']
+    resultDf=resultDf[includeList].copy()
+    #print(' result : ',resultDf)
+    dfSum=resultDf.sum()
+    #print(' Sum --- ',dfSum)   
+    del dfHex, hexagons1, kRing, dfShop, dfDummy, resultDf
+    return dfSum[0]
+def GetExtResidential_Around_CenterGrid_rev2(hex_id, h3_level):
+    hexagons1=[]
+    hexagons1.append(hex_id)
+    #print('hex :',hexagons1)
+    # k_ring 2nd argument: 1,2,3,....  is the level of neighbor grids around center grid
+    # 0 is no neighbor
+    # 1 is 1 level around center grid and so on
+    kRing = h3.k_ring(hexagons1[0], 1)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
+
+    dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
+    #print(' --- ',dfHex)    
+    dfHex['h_Latitude']=dfHex.apply(lambda x: GetCenterHex_Lat(x['hex_id']),axis=1 )
+    dfHex['h_Longitude']=dfHex.apply(lambda x: GetCenterHex_Lng(x['hex_id']),axis=1 )
+    dfHex=Reverse_GeoCoding_5km2(dfHex)    
+    #print(' 2 --- ',dfHex)
+    provinceList=list(dfHex['p_name_t'].unique())
+    #print(' provinceList : ',provinceList)
+    resultDf=pd.DataFrame()
+    for province in provinceList:
+        dfShop=Read_Ext_Residential_Prv(province)   
+        dfDummy=dfHex[dfHex['p_name_t']==province].copy()
+        dfDummy['stores']=dfDummy.apply(lambda x: GetExtResidential_rev2(dfShop, x['hex_id'],h3_level),axis=1 )
+        #print(' dfDummy : ',dfDummy)
+        resultDf=resultDf.append(dfDummy).reset_index(drop=True)
+
+    includeList=['stores']
+    resultDf=resultDf[includeList].copy()
+    #print(' result : ',resultDf)
+    dfSum=resultDf.sum()
+    #print(' Sum --- ',dfSum)   
+    del dfHex, hexagons1, kRing, dfShop, dfDummy, resultDf
+    return dfSum[0]
+def GetExtRestaurant_Around_CenterGrid_rev2(hex_id, h3_level):
+    hexagons1=[]
+    hexagons1.append(hex_id)
+    #print('hex :',hexagons1)
+    # k_ring 2nd argument: 1,2,3,....  is the level of neighbor grids around center grid
+    # 0 is no neighbor
+    # 1 is 1 level around center grid and so on
+    kRing = h3.k_ring(hexagons1[0], 1)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
+
+    dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
+    #print(' --- ',dfHex)    
+    dfHex['h_Latitude']=dfHex.apply(lambda x: GetCenterHex_Lat(x['hex_id']),axis=1 )
+    dfHex['h_Longitude']=dfHex.apply(lambda x: GetCenterHex_Lng(x['hex_id']),axis=1 )
+    dfHex=Reverse_GeoCoding_5km2(dfHex)    
+    #print(' 2 --- ',dfHex)
+    provinceList=list(dfHex['p_name_t'].unique())
+    #print(' provinceList : ',provinceList)
+    resultDf=pd.DataFrame()
+    for province in provinceList:
+        dfShop=Read_Ext_Restaurant_Prv(province)   
+        dfDummy=dfHex[dfHex['p_name_t']==province].copy()
+        dfDummy['stores']=dfDummy.apply(lambda x: GetExtRestaurant_rev2(dfShop, x['hex_id'],h3_level),axis=1 )
+        #print(' dfDummy : ',dfDummy)
+        resultDf=resultDf.append(dfDummy).reset_index(drop=True)
+
+    includeList=['stores']
+    resultDf=resultDf[includeList].copy()
+    #print(' result : ',resultDf)
+    dfSum=resultDf.sum()
+    #print(' Sum --- ',dfSum)   
+    del dfHex, hexagons1, kRing, dfShop, dfDummy, resultDf
+    return dfSum[0]
+def GetExtEducation_Around_CenterGrid_rev2(hex_id, h3_level):
+    hexagons1=[]
+    hexagons1.append(hex_id)
+    #print('hex :',hexagons1)
+    # k_ring 2nd argument: 1,2,3,....  is the level of neighbor grids around center grid
+    # 0 is no neighbor
+    # 1 is 1 level around center grid and so on
+    kRing = h3.k_ring(hexagons1[0], 1)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
+
+    dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
+    #print(' --- ',dfHex)    
+    dfHex['h_Latitude']=dfHex.apply(lambda x: GetCenterHex_Lat(x['hex_id']),axis=1 )
+    dfHex['h_Longitude']=dfHex.apply(lambda x: GetCenterHex_Lng(x['hex_id']),axis=1 )
+    dfHex=Reverse_GeoCoding_5km2(dfHex)    
+    #print(' 2 --- ',dfHex)
+    provinceList=list(dfHex['p_name_t'].unique())
+    #print(' provinceList : ',provinceList)
+    resultDf=pd.DataFrame()
+    for province in provinceList:
+        dfShop=Read_Ext_Education_Prv(province)   
+        dfDummy=dfHex[dfHex['p_name_t']==province].copy()
+        dfDummy['stores']=dfDummy.apply(lambda x: GetExtEducation_rev2(dfShop, x['hex_id'],h3_level),axis=1 )
+        #print(' dfDummy : ',dfDummy)
+        resultDf=resultDf.append(dfDummy).reset_index(drop=True)
+
+    includeList=['stores']
+    resultDf=resultDf[includeList].copy()
+    #print(' result : ',resultDf)
+    dfSum=resultDf.sum()
+    #print(' Sum --- ',dfSum)   
+    del dfHex, hexagons1, kRing, dfShop, dfDummy, resultDf
+    return dfSum[0]
+def GetExtHotel_Around_CenterGrid_rev2(hex_id, h3_level):
+    hexagons1=[]
+    hexagons1.append(hex_id)
+    #print('hex :',hexagons1)
+    # k_ring 2nd argument: 1,2,3,....  is the level of neighbor grids around center grid
+    # 0 is no neighbor
+    # 1 is 1 level around center grid and so on
+    kRing = h3.k_ring(hexagons1[0], 1)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
+
+    dfHex=pd.DataFrame(hexagons1, columns=['hex_id'])
+    #print(' --- ',dfHex)    
+    dfHex['h_Latitude']=dfHex.apply(lambda x: GetCenterHex_Lat(x['hex_id']),axis=1 )
+    dfHex['h_Longitude']=dfHex.apply(lambda x: GetCenterHex_Lng(x['hex_id']),axis=1 )
+    dfHex=Reverse_GeoCoding_5km2(dfHex)    
+    #print(' 2 --- ',dfHex)
+    provinceList=list(dfHex['p_name_t'].unique())
+    #print(' provinceList : ',provinceList)
+    resultDf=pd.DataFrame()
+    for province in provinceList:
+        dfShop=Read_Ext_Hotel_Prv(province)   
+        dfDummy=dfHex[dfHex['p_name_t']==province].copy()
+        dfDummy['stores']=dfDummy.apply(lambda x: GetExtHotel_rev2(dfShop, x['hex_id'],h3_level),axis=1 )
+        #print(' dfDummy : ',dfDummy)
+        resultDf=resultDf.append(dfDummy).reset_index(drop=True)
+
+    includeList=['stores']
+    resultDf=resultDf[includeList].copy()
+    #print(' result : ',resultDf)
+    dfSum=resultDf.sum()
+    #print(' Sum --- ',dfSum)   
+    del dfHex, hexagons1, kRing, dfShop, dfDummy, resultDf
+    return dfSum[0]
+
+
 ##### Get popolation 5km2 area
 def GetPopulation_Around_CenterGrid(dfDummy,hex_id):
        hexagons1=[]
@@ -740,6 +945,61 @@ def GetPopulation_Around_CenterGrid(dfDummy,hex_id):
            population=str(0)+'_'+str(0)+'_'+str(0)+"_"+str(0)+"_"+str(0)+"_"+str(0)+"_"+str(0)
        del dfHex, hexagons1
        return population
+
+## Get population in 5km2 area + fix boundary grid
+def GetPopulation_Around_CenterGrid_rev2(hex_id):
+    hexagons1=[]
+    hexagons1.append(hex_id)
+    # k_ring 2nd argument: 1,2,3,....  is the level of neighbor grids around center grid
+    # 0 is no neighbor
+    # 1 is 1 level around center grid and so on
+    kRing = h3.k_ring(hexagons1[0], 1)
+    hexagons1=list(set(list(hexagons1+list(kRing))))
+
+    dfHex=pd.DataFrame(hexagons1, columns=['hex_id']) 
+    #print(' --- ',dfHex)    
+    dfHex['h_Latitude']=dfHex.apply(lambda x: GetCenterHex_Lat(x['hex_id']),axis=1 )
+    dfHex['h_Longitude']=dfHex.apply(lambda x: GetCenterHex_Lng(x['hex_id']),axis=1 )
+    dfHex=Reverse_GeoCoding_5km2(dfHex)    
+    #print(' 2 --- ',dfHex)
+
+    provinceList=list(dfHex['p_name_t'].unique())
+    #print(' provinceList : ',provinceList)
+
+    resultDf=pd.DataFrame()
+    for province in provinceList:
+        dfDummy=Read_H3_Grid_Lv8_Province_PAT(province)
+        dfPop=dfHex[dfHex['p_name_t']==province].copy()
+        if(len(dfDummy)>0):
+            #print(' merge ')
+            dfPop=dfPop.merge(dfDummy, how="left", on=["hex_id"])
+            #print(' --- hex : ',dfHex,' :: ',dfHex.columns)
+            includeList=['hex_id', 'population', 'population_youth', 'population_elder', 'population_under_five', 'population_515_2560', 'population_men', 'population_women']
+            dfPop=dfPop[includeList].copy()
+            #print(' --- pop : ',dfPop,' :: ',dfPop.columns)
+            
+            resultDf=resultDf.append(dfPop)
+            
+        else:
+            print(' not merge ')
+            
+    #print(' result :', resultDf)
+    dfSum=resultDf.sum()
+    #print(' --- Sum : ',dfSum,' :: ',dfSum[1], ' ::  ',type(dfSum[2]))
+    pop_general=dfSum[1]
+    pop_youth=dfSum[2]
+    pop_elder=dfSum[3]
+    pop_under_five=dfSum[4]
+    pop_515_2560=dfSum[5]
+    pop_men=dfSum[6]
+    pop_women=dfSum[7]
+    population=str(pop_general)+'_'+str(pop_youth)+'_'+str(pop_elder)+"_"+str(pop_under_five)+"_"+str(pop_515_2560)+"_"+str(pop_men)+"_"+str(pop_women)
+    del pop_515_2560, pop_elder, pop_general, pop_men, pop_women, pop_youth, pop_under_five
+    
+    del dfHex, hexagons1, resultDf, dfPop, dfSum
+    return population
+
+
 def Assign_Population_General_CenterGrid(x):
        return float(x.split("_")[0])
 def Assign_Population_Youth_CenterGrid(x):
@@ -866,31 +1126,38 @@ for province in province_bar:  #[:2]:
     ### Count store numbers on store grid
     print(' 2. POI on grid and 5 km2 ')   
     dfShop=Read_Ext_711_Prv(province)     
-    dfDummy['ext_711_073']=dfDummy.swifter.apply(lambda x: Get711Store_rev2(dfShop, x['hex_id'],h3_level),axis=1)           
-    dfDummy['ext_711_5']=dfDummy.swifter.apply(lambda x: Get711Store_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
-    #dfDummy['ext_711_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
+    dfDummy['ext_711_073']=dfDummy.swifter.apply(lambda x: Get711Store_rev2(dfShop, x['hex_id'],h3_level),axis=1)               
+    ### Version 1  ## did not fix missing information on bounary grid
+    #dfDummy['ext_711_5']=dfDummy.swifter.apply(lambda x: Get711Store_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)    
+    dfDummy['ext_711_5']=dfDummy.swifter.apply(lambda x: Get711Store_Around_CenterGrid_rev2(x['hex_id'], h3_level),axis=1)
+    # #dfDummy['ext_711_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
+
     dfShop=Read_Ext_Retail_Shop_Prv(province)   
     dfDummy['ext_Retail_073']=dfDummy.swifter.apply(lambda x: GetExtRetailShop_rev2(dfShop, x['hex_id'],h3_level),axis=1)
-    dfDummy['ext_Retail_5']=dfDummy.swifter.apply(lambda x: GetExtRetailShop_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_Retail_5']=dfDummy.swifter.apply(lambda x: GetExtRetailShop_Around_CenterGrid_rev2(x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_Retail_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
+    
     dfShop=Read_Ext_Residential_Prv(province)  
     dfDummy['ext_Residential_073']=dfDummy.swifter.apply(lambda x: GetExtResidential_rev2(dfShop, x['hex_id'],h3_level),axis=1)
-    dfDummy['ext_Residential_5']=dfDummy.swifter.apply(lambda x: GetExtResidential_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_Residential_5']=dfDummy.swifter.apply(lambda x: GetExtResidential_Around_CenterGrid_rev2(x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_Residential_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
+    
     dfShop=Read_Ext_Restaurant_Prv(province)  
     dfDummy['ext_Restaurant_073']=dfDummy.swifter.apply(lambda x: GetExtRestaurant_rev2(dfShop, x['hex_id'],h3_level),axis=1)
-    dfDummy['ext_Restaurant_5']=dfDummy.swifter.apply(lambda x: GetExtRestaurant_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_Restaurant_5']=dfDummy.swifter.apply(lambda x: GetExtRestaurant_Around_CenterGrid_rev2(x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_Restaurant_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
+    
     dfShop=Read_Ext_Education_Prv(province)
     dfDummy['ext_Education_073']=dfDummy.swifter.apply(lambda x: GetExtEducation_rev2(dfShop, x['hex_id'],h3_level),axis=1)
-    dfDummy['ext_Education_5']=dfDummy.swifter.apply(lambda x: GetExtEducation_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_Education_5']=dfDummy.swifter.apply(lambda x: GetExtEducation_Around_CenterGrid_rev2(x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_Education_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
+    
     dfShop=Read_Ext_Hotel_Prv(province) 
     dfDummy['ext_Hotel_073']=dfDummy.swifter.apply(lambda x: GetExtHotel_rev2(dfShop, x['hex_id'],h3_level),axis=1)  
-    dfDummy['ext_Hotel_5']=dfDummy.swifter.apply(lambda x: GetExtHotel_Around_CenterGrid(dfShop,x['hex_id'], h3_level),axis=1)
+    dfDummy['ext_Hotel_5']=dfDummy.swifter.apply(lambda x: GetExtHotel_Around_CenterGrid_rev2(x['hex_id'], h3_level),axis=1)
     #dfDummy['ext_Hotel_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
     print(' 3. Population on 5km2 area ')   
-    dfDummy['Population_C']=dfDummy.swifter.apply(lambda x:GetPopulation_Around_CenterGrid(dfPop,x['hex_id']),axis=1)
+    dfDummy['Population_C']=dfDummy.swifter.apply(lambda x:GetPopulation_Around_CenterGrid_rev2(x['hex_id']),axis=1)
     dfDummy['population_general_5']=dfDummy.swifter.apply(lambda x: Assign_Population_General_CenterGrid(x['Population_C']),axis=1)
     dfDummy['population_1625_5']=dfDummy.swifter.apply(lambda x: Assign_Population_Youth_CenterGrid(x['Population_C']),axis=1)
     dfDummy['population_60up_5']=dfDummy.swifter.apply(lambda x: Assign_Population_Elder_CenterGrid(x['Population_C']),axis=1)

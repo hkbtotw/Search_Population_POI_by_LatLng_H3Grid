@@ -67,3 +67,37 @@ def Reverse_GeoCoding_CenterGrid(Inputdata):
     output=output.reset_index(drop=True)
     #---------------------- SAVE FILE ------------------
     return output
+
+def Reverse_GeoCoding_5km2(Inputdata):
+    #---------------------INPUT SHAPE---------------------
+    #path = 'D:/LAB/geopandas_tuitor/'
+    path= 'C:\\Users\\70018928\\Documents\\Project2021\\TBR\\SHAPE\\'
+    # Importing Thailand ESRI Shapefile 
+    th_boundary = gpd.read_file(path+'TH_tambon_boundary.shp')
+    #A_boundary = gpd.read_file(path+'TH_amphoe_border.shp')
+    #P_boundary = gpd.read_file(path+'TH_province.shp')
+
+    #---------------------INPUT POINT---------------------
+
+    cvm_geo = [Point(xy) for xy in zip(Inputdata['h_Longitude'].astype(float),Inputdata['h_Latitude'].astype(float))]
+    Inputdata = gpd.GeoDataFrame(Inputdata, geometry = cvm_geo)
+    Inputdata.set_crs(epsg=4326, inplace=True)
+    Inputdata = Inputdata.to_crs(epsg=32647)
+    #cvm_point.plot()    
+
+    #--------------------- Spatial Join------------------
+   #  print(' input : ',Inputdata, ' ======> ',Inputdata.columns)
+   #  print(' thboundary ', th_boundary,' ------- ',th_boundary.columns)
+    output = gpd.sjoin(Inputdata,th_boundary, how = 'inner', op = 'intersects')
+   #  print(' output : ', output.columns)
+
+    dropList=[ 'geometry', 'index_right',
+       'p_code', 'a_code', 't_code', 
+       'a_name_e', 't_name_e', 's_region', 'prov_idn',
+       'amphoe_idn', 'tambon_idn', 'area_sqm', 'BS_IDX']
+    output.drop(columns=dropList,inplace=True)
+    #print(' output -------> ', output, ' ::  ',output.columns)
+
+    output=output.reset_index(drop=True)
+    #---------------------- SAVE FILE ------------------
+    return output
