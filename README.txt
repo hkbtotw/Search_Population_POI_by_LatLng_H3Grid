@@ -5,6 +5,7 @@
 2021-07-16  Add reverse geocoding by  longdo map
 2021-07-23  Fix problem with interpolating population at store in boundary grid which might have center on different province
 2021-07-29  Fix problem with searching for information on the boundary grid : #POIs and population in 5km2
+2021-08-19  Add #Gas Station by Radius based on Longdo API
 
 Note:
 1.Result of total shop computed by specified radius function might be different from that by summation on grids as the first method uses location lat lng at center as reference but the second uses fixed grid location as reference.

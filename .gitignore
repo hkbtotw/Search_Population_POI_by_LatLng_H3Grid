@@ -2,3 +2,9 @@ __pycache__/
 Credential.*
 *.csv
 *.xlsx
+Search_Population_POI_by_LatLng_H3Grid_modin.py
+AGSUB_CVM_Saleout/
+dask-worker-space/
+Saleout_by_Product/
+SHAPE/
+TBR_purchase/

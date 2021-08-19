@@ -1041,6 +1041,23 @@ def ComputeNumberShop_by_Distance_rev2(s_lat, s_lng, df711, shop_distance):
     df711['distance']=df711.apply(lambda x: ComputeElementdistance(s_lat, s_lng, x['lat'], x['lng']),axis=1)
     return len(df711[df711['distance']<=shop_distance].reset_index(drop=True))
 
+## Compute GasStation by Radius
+def GetExtGasStation_by_Radius(lat, lon, distance):        
+    keywords=['Gas Station','ปั๊มน้ำมัน']    
+    span=str(distance)+'km'
+    #print(keywords, ' ::  ',lon,' :: ',lat,' :: ',span)
+    mainDf=pd.DataFrame()
+    for keyword in keywords:        
+        output=SearchLocation_Longdo(keyword, lon,lat, span)
+        #print(' ::  ', output)
+        mainDf=mainDf.append(output).reset_index(drop=True)
+    #print(len(mainDf),' -- mainDf---', mainDf.head(10),' :: ',mainDf.columns, ' :: ',mainDf.dtypes)
+
+    mainDf.drop_duplicates(keep='first', inplace=True)
+    #print(len(mainDf),' -- mainDf---', mainDf.head(10),' :: ',mainDf.columns)
+    del output
+    return len(mainDf)
+
 #### Reverse geocoing with Longdo map
 def ReverseGeocoding_Longdo(lat,lng):
     # Use URL from opendata website
@@ -1058,6 +1075,49 @@ def ReverseGeocoding_Longdo(lat,lng):
         output_string=''
     #print(' result :: ', output_string)
     return output_string
+
+### Search location by keyword
+def SearchLocation_Longdo(keyword, lon,lat, span):
+    # Use URL from opendata website
+    url = 'https://search.longdo.com/mapsearch/json/search?'  
+    stringSearch='keyword=%s&lon=%s&lat=%s&span=%s&key=%s'%(keyword,lon,lat,span,longdo_api)
+    url=url+stringSearch
+    #print(' url : ',url)
+
+    response = requests.get(url)
+    
+    try:
+        result1=response.json()
+        result=result1['data'] 
+        #print(' result : ',type(result))
+        outputDf=pd.DataFrame()        
+        for n in result:
+            row_append={ 'id':n['id'], 'name':n['name'],'lat':n['lat'],'lng':n['lon'],'icon':n['icon'],'address':n['address'],'obsolated':n['obsoleted'],'distance':n['distance']  }
+            outputDf=outputDf.append( row_append, ignore_index=True).reset_index(drop=True)
+    except:
+        outputDf=pd.DataFrame()
+
+    return outputDf
+
+### Check missing Center_Province incase Lat Lng could not find Province
+def Check_MissingInformation(dfProc, dfOrig):
+    dfProc['key']=dfProc['hex_id']+'_'+dfProc['Name']+'_'+dfProc['Latitude'].astype(str)+'_'+dfProc['Longitude'].astype(str)
+    dfOrig['key']=dfOrig['hex_id']+'_'+dfOrig['Name']+'_'+dfOrig['Latitude'].astype(str)+'_'+dfOrig['Longitude'].astype(str)
+    listProc=list(dfProc['key'].unique())
+    listOrig=list(dfOrig['key'].unique())
+    resultList=[item for item in listOrig if item not in listProc]
+    print(' ------ remaining : ',resultList)
+    dfDummy=pd.DataFrame(resultList,columns=['key'])
+    dfDummy=dfDummy.merge(dfOrig, on='key', how='left', indicator=True)
+    dfDummy['Center_Province']=dfDummy['p_name_t']
+    dfDummy.drop(columns=['s_region','_merge','key'],inplace=True)
+    print(' ------ dfDummy : ',dfDummy, ' --- ',dfDummy.columns)
+    dfProc.drop(columns=['key'],inplace=True)
+    dfProc=dfProc.append(dfDummy).reset_index(drop=True)
+    del resultList, listProc, listOrig
+    del dfOrig, dfDummy
+
+    return dfProc
 
 ########################################################################################################
 ######  Input ----  ####################################################################################
@@ -1081,9 +1141,11 @@ input_path=current_path+'\\'
 
 # input filename
 #input_name='Store_master.xlsx'    ### KFC Store   797,799,806,816
-input_name='Location.xlsx'     ### Location   798, 800, 807, 817
+#input_name='Location.xlsx'     ### Location   798, 800, 807, 817
+input_name='KFC_Population_5km_Aug21.xlsx'
 #output_name='Store_Population_POI.xlsx'     ### KFC Store
-output_name='Location_Population_POI.xlsx'   #### Location
+#output_name='Location_Population_POI.xlsx'   #### Location
+output_name='KFC_Population_5km_Aug21_Result_2.xlsx'   #### Location
 
 # id column
 id_column_name='Store_ID'
@@ -1100,22 +1162,27 @@ print(len(dfIn),' ======= ',dfIn.head(10))
 dfIn['hex_id']=dfIn.progress_apply(lambda x: GetH3hex(x['Latitude'],x['Longitude'],h3_level),axis=1)
 dfIn['Center_Latitude']=dfIn.progress_apply(lambda x: GetCenterHex_Lat(x['hex_id']),axis=1)
 dfIn['Center_Longitude']=dfIn.progress_apply(lambda x: GetCenterHex_Lng(x['hex_id']),axis=1)
-
+#print(' -------------- ',dfIn)
 
 #includeList=['hex_id','Store_ID','Latitude','Longitude']   ### KFC Store
 includeList=['hex_id','Name','Latitude','Longitude','Center_Latitude','Center_Longitude']     ### Location
 dfHex=dfIn[includeList].copy().reset_index(drop=True)
-#print(len(dfHex),'  ----  ',dfHex)
+print(len(dfHex),'  -- dfHex--  ',dfHex)
 
 #### Find province name
 dfHex=Reverse_GeoCoding(dfHex)
 dropList=['geometry','index_right', 'p_code', 'a_code', 't_code', 'prov_idn','amphoe_idn', 'tambon_idn', 'area_sqm', 'BS_IDX']
 dfHex.drop(columns=dropList,inplace=True)
-#print(dfHex.columns, ' ======= ',dfHex)
+dfHexDummy=dfHex.copy()
+print(dfHex.columns, ' ======= ',dfHex)
 
 ## Find center grid province name
 dfHex=Reverse_GeoCoding_CenterGrid(dfHex)
-#print(dfHex.columns, ' ==== ****************** === ',dfHex)
+print(dfHex.columns, ' ==== ****************** === ',dfHex)
+
+dfHex=Check_MissingInformation(dfHex, dfHexDummy)
+print(dfHex.columns, ' ==== PREPARED and READY === ',dfHex)
+
 
 mainDf=pd.DataFrame()
 
@@ -1173,7 +1240,11 @@ for province in province_bar:  #[:2]:
     dfShop=Read_Ext_Hotel_Prv(province) 
     dfDummy['ext_Hotel_073']=dfDummy.swifter.apply(lambda x: GetExtHotel_rev2(dfShop, x['hex_id'],h3_level),axis=1)  
     dfDummy['ext_Hotel_5']=dfDummy.swifter.apply(lambda x: GetExtHotel_Around_CenterGrid_rev2(dfShop, province, x['hex_id'], h3_level),axis=1)
-    #dfDummy['ext_Hotel_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)
+    #dfDummy['ext_Hotel_by_radius']=dfDummy.apply(lambda x: ComputeNumberShop_by_Distance_rev2(x['Latitude'],x['Longitude'],dfShop, shop_distance),axis=1)    
+       
+    dfDummy['ext_GasStation_1km']=dfDummy.progress_apply(lambda x: GetExtGasStation_by_Radius(x['Latitude'],x['Longitude'],0.5),axis=1)
+    dfDummy['ext_GasStation_5km']=dfDummy.progress_apply(lambda x: GetExtGasStation_by_Radius(x['Latitude'],x['Longitude'],2.5),axis=1)           
+    
     print(' 3. Population on 5km2 area ')   
     dfDummy['Population_C']=dfDummy.swifter.apply(lambda x:GetPopulation_Around_CenterGrid_rev2( x['hex_id']),axis=1)
     dfDummy['population_general_5']=dfDummy.swifter.apply(lambda x: Assign_Population_General_CenterGrid(x['Population_C']),axis=1)
@@ -1203,7 +1274,7 @@ mainDf.rename(columns={'Center_Province':'GridCenter_Province'},inplace=True)
 mainDf.to_excel(output_name)
 
 conn.close()
-del dfIn, dfHex, dfPop, dfDummy, dfShop
+del dfIn, dfHex, dfPop, dfDummy, dfShop, dfHexDummy
 del mainDf
 
 ###****************************************************************
